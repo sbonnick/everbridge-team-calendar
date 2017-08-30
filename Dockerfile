@@ -11,5 +11,4 @@ RUN bower install --allow-root
 COPY . .
 
 EXPOSE 8000
-CMD [ "node", "env.js" ]
-CMD [ "polymer", "serve", "--port", "8000", "--hostname", " 0.0.0.0" ]
+CMD [ "node", "env.js", ";", "polymer", "serve", "--port", "8000", "--hostname", "0.0.0.0" ]
