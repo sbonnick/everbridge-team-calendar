@@ -1,0 +1,275 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../bower_components/scheduler-component/scheduler-component.html">
+<link rel="import" href="../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/neon-animation/web-animations.html">
+<link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
+
+<dom-module id="everbridge-team-calendar">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+      #scheduleContainer {
+        width: 70%;
+      } 
+      paper-dropdown-menu {
+        width: 300px;
+        margin-right: 20px;
+     }
+     paper-listbox {
+        width: 300px;
+        margin-right: 20px;
+     }
+    </style>
+
+    <iron-ajax id="envars"
+      auto 
+      url="env.json" 
+      handle-as="json" 
+      last-response="{{env}}">
+    </iron-ajax>
+
+    <iron-ajax id="PostSub"
+      url="{{_formatSubstitutionURL(uri, calendarid)}}"
+      method="POST"
+      content-type="application/json"
+      handle-as="json"
+      on-response="handleSuccessSub"
+      on-error="handleFailedSub">
+    </iron-ajax>
+
+    <iron-ajax id="getGroups" 
+      auto 
+      url="{{_formatGroupURL(uri, contactgroup)}}" 
+      handle-as="json" 
+      on-response="handleGroupData" 
+      debounce-duration="300">
+    </iron-ajax>
+    
+    <iron-ajax id="getAssignment" 
+      auto 
+      url="{{_formatAssignmentURL(uri, calendarid, date, days)}}" 
+      handle-as="json" 
+      on-response="handleAssignmentData" 
+      debounce-duration="300">
+    </iron-ajax>
+    
+    <!--
+    <iron-ajax id="getSubstitution" 
+      auto 
+      url="{{_formatSubstitutionURL(uri, calendarid, date, days)}}" 
+      handle-as="json" 
+      on-response="handleSubstitutionData" 
+      debounce-duration="300"> 
+    </iron-ajax>
+    -->
+
+    <paper-dialog id='modal' modal>
+      <h2>Header</h2>
+      <paper-dropdown-menu label="Replacement Staff">
+        <paper-listbox id='staffSelect' slot="dropdown-content" attr-for-selected="value">
+          <template is="dom-repeat" items="[[staff]]">
+            <paper-item value="[[item.id]]">[[item.name]]</paper-item>
+          </template>
+        </paper-listbox>
+      </paper-dropdown-menu>
+      <div class="buttons">
+        <paper-button dialog-dismiss>Cancel</paper-button>
+        <paper-button dialog-confirm autofocus>Accept</paper-button>
+      </div>
+    </paper-dialog>
+
+    <div id="scheduleContainer">
+      <scheduler-component
+        id='schedulerComponent'
+        default-view="month"
+        show-categories
+        weekends
+        height=800
+        all-day-text="All Day"
+        event-color="#378006"
+        text-color="#ecf0f1"
+        categories={{categories}}
+        events={{events}}
+        header=''>
+      </scheduler-component>
+    <div/>
+  </template>
+
+  
+
+  <script>
+    function getRandomColor() {
+      var letters = '0123456789A'; //BCDEF
+      var color = '#';
+      for (var i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * letters.length)];
+      }
+      return color;
+    }
+
+    /**
+     * @customElement
+     * @polymer
+     */
+    class everbridgeTeamCalendar extends Polymer.Element {
+      static get is() { return 'everbridge-team-calendar'; }
+      static get properties() {
+        return {
+          env: Object,
+          uri: {
+            type: String
+          },
+          contactgroup: {
+            type: String
+          },
+          calendarid: {
+            type: String
+          },
+          date: {
+            type: String,
+            value: "2017-01-01"
+          },
+          days: {
+            type: String,
+            value: "365"
+          },
+          categories: {
+            type: Object,
+            value: []
+          },
+          events: {
+            type: Object,
+            value: []
+          },
+          staff: {
+            type: Object,
+            value: []
+          },
+          substitutions: {
+            type: Object,
+            value: []
+          }
+        };
+      }
+      static get observers() {
+        return [
+          '_env(env)'
+        ]
+      }
+
+      ready() {
+        super.ready();
+        this.$.schedulerComponent.addEventListener('event-click', e => {this._handleClick(e)});
+        this.$.modal.addEventListener('iron-overlay-closed', e => {this._closedDialog(e)});
+      }
+
+      _formatAssignmentURL(uri, calendarid, date, days) {
+        return uri + "calendars/"+ calendarid + "/assignment/" + date + "/" + days
+      }
+
+      _formatSubstitutionURL(uri, calendarid, date=null, days=null) {
+        if (date == null || days == null) {
+          return uri + "calendars/"+ calendarid + "/substitutions/"
+        }
+        return uri + "calendars/"+ calendarid + "/substitutions/" + date + "/" + days
+      }
+
+      _formatGroupURL(uri, contactgroup) {
+        return uri + "contacts/" + contactgroup
+      }
+
+      _env(env) {
+        this.uri = env.uri
+        this.contactgroup = env.contactGroup
+        this.calendarid = env.calendarId
+      }
+
+      _handleClick(e) {
+        console.info(e.detail);
+        this._modalData = e.detail.calEvent;
+        this.$.modal.open();
+      }
+
+      _closedDialog(e) {
+        if (!e.detail.confirmed) {
+          return;
+        }
+
+        if (this._modalData.raw.staffContactid === this.$.staffSelect.selectedItem.value) {
+          return;
+        }
+
+        var sub = {
+          contactId:     this._modalData.raw.staffContactid,
+          replacementId: this.$.staffSelect.selectedItem.value,
+          start:         this._modalData.raw.shiftApplicabilityIntervalFrom,
+          end:           this._modalData.raw.shiftApplicabilityIntervalTo
+        };
+
+        this.$.PostSub.body = sub;
+        this.$.PostSub.generateRequest();
+      }
+
+      handleSuccessSub(e) {
+        this.$.getAssignment.generateRequest();
+      }
+
+      handleFailedSub(e) {
+        console.error("Failed to create Sub");
+      }
+
+      handleGroupData(data) {
+        var tempStaff = [];
+        data.detail.response.data.forEach(function(staff) {
+          tempStaff.push({
+            id:    staff.id,
+            name:  staff.firstName + " " + staff.lastName
+          });
+        });
+        this.staff = tempStaff;
+      }
+
+      handleAssignmentData(data) {
+        var tempEvents = [];
+        var tempcategories = [];
+
+        data.detail.response.data.forEach(function(staff) {
+          staff.shiftAssignments.forEach(function(shift) {
+            tempEvents.push({
+              allDay: true,
+              title:    staff.firstName + " " + staff.lastName,
+              start:    shift.shiftApplicabilityIntervalFrom,
+              category: "s" + shift.staffShiftAssignmentId,
+              raw:      shift
+            });
+            
+            var index = tempcategories.findIndex(x => x.id == shift.staffShiftAssignmentId)
+            if (index === -1){
+              tempcategories.push({ 
+                id:     shift.staffShiftAssignmentId,
+                label:  "s" + shift.staffShiftAssignmentId, 
+                color:  getRandomColor(),
+                hidden: false 
+              });
+            }
+
+          })
+        })
+        this.categories = tempcategories;
+        this.events = tempEvents;
+      }
+
+      handleSubstitutionData(data) {
+        this.substitutions = data.detail.response.data;
+      }
+    }
+
+    window.customElements.define(everbridgeTeamCalendar.is, everbridgeTeamCalendar);
+  </script>
+</dom-module>

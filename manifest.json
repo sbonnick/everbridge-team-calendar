@@ -1,0 +1,6 @@
+{
+  "name": "everbridge-team-calendar",
+  "short_name": "everbridge-team-calendar",
+  "start_url": "/",
+  "display": "standalone"
+}
