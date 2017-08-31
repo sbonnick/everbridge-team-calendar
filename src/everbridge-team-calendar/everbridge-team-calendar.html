@@ -17,7 +17,7 @@
       }
       #scheduleContainer {
         width: 70%;
-      } 
+      }
       paper-dropdown-menu {
         width: 300px;
      }
@@ -38,15 +38,15 @@
       method="POST"
       content-type="application/json"
       handle-as="json"
-      on-response="handleSuccessSub"
-      on-error="handleFailedSub">
+      on-response="_handleSuccessSub"
+      on-error="_handleFailedSub">
     </iron-ajax>
 
     <iron-ajax id="getGroups" 
       auto 
       url="{{_formatGroupURL(uri, contactgroup)}}" 
       handle-as="json" 
-      on-response="handleGroupData" 
+      on-response="_handleGroupData" 
       debounce-duration="300">
     </iron-ajax>
     
@@ -54,7 +54,7 @@
       auto 
       url="{{_formatAssignmentURL(uri, calendarid, date, days)}}" 
       handle-as="json" 
-      on-response="handleAssignmentData" 
+      on-response="_handleAssignmentData" 
       debounce-duration="300">
     </iron-ajax>
     
@@ -63,7 +63,7 @@
       auto 
       url="{{_formatSubstitutionURL(uri, calendarid, date, days)}}" 
       handle-as="json" 
-      on-response="handleSubstitutionData" 
+      on-response="_handleSubstitutionData" 
       debounce-duration="300"> 
     </iron-ajax>
     -->
@@ -94,7 +94,7 @@
         all-day-text="All Day"
         event-color="#378006"
         text-color="#ecf0f1"
-        categories={{categories}}
+        categories={{staff}}
         events={{events}}
         header=''>
       </scheduler-component>
@@ -104,13 +104,16 @@
   
 
   <script>
-    function getRandomColor() {
-      var letters = '0123456789A'; //BCDEF
-      var color = '#';
-      for (var i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * letters.length)];
-      }
-      return color;
+
+    const _COLORS = [
+    "#F44336", "#9C27B0", "#2196F3", "#009688", "#4CAF50", "#FF9800",
+    "#795548", "#9E9E9E", "#000000", "#E91E63", "#673AB7", "#00BCD4", 
+    "#8BC34A", "#FFC107", "#607D8B", "#3F51B5", "#FF5722",  "#FFEB3B"
+    ]
+
+    function getColor(count) {
+      var remainder = count % _COLORS.length;
+      return _COLORS[remainder];
     }
 
     /**
@@ -121,15 +124,20 @@
       static get is() { return 'everbridge-team-calendar'; }
       static get properties() {
         return {
-          env: Object,
+          env: {
+            type: Object
+          },
           uri: {
-            type: String
+            type: String,
+            computed: '_setUri(env)'
           },
           contactgroup: {
-            type: String
+            type: String,
+            computed: '_setContactGroup(env)'
           },
           calendarid: {
-            type: String
+            type: String,
+            computed: '_setCalendarId(env)'
           },
           date: {
             type: String,
@@ -145,7 +153,8 @@
           },
           events: {
             type: Object,
-            value: []
+            value: [],
+            computed: '_computeEvents(_events, staff)'
           },
           staff: {
             type: Object,
@@ -154,20 +163,26 @@
           substitutions: {
             type: Object,
             value: []
-          }
+          },
+          _events: Object
         };
       }
-      static get observers() {
-        return [
-          '_env(env)'
-        ]
-      }
-
+      
       ready() {
         super.ready();
         this.$.schedulerComponent.addEventListener('event-click', e => {this._handleClick(e)});
         this.$.modal.addEventListener('iron-overlay-closed', e => {this._closedDialog(e)});
       }
+
+
+      // Build Environment Variables
+
+      _setUri(env) { return env.uri }
+      _setContactGroup(env) { return env.contactGroup }
+      _setCalendarId(env) { return env.calendarId }
+
+
+      // URL Formatting Rules
 
       _formatAssignmentURL(uri, calendarid, date, days) {
         return uri + "calendars/"+ calendarid + "/assignment/" + date + "/" + days
@@ -184,98 +199,86 @@
         return uri + "contacts/" + contactgroup
       }
 
-      _env(env) {
-        this.uri = env.uri
-        this.contactgroup = env.contactGroup
-        this.calendarid = env.calendarId
-      }
+
+      // Handling actions against clicking a user
 
       _handleClick(e) {
-        console.info(e.detail);
         var data = e.detail.calEvent;
-       
-        var startutc = moment(data.raw.shiftApplicabilityIntervalFrom);
-        var endutc = moment(data.raw.shiftApplicabilityIntervalTo);
-
         data.cleaned ={
-          startTz: startutc.tz('America/New_York').format('lll'),
-          endTz:   endutc.tz('America/New_York').format('lll')
+          startTz: moment(data.raw.shiftApplicabilityIntervalFrom).tz('America/New_York').format('lll'),
+          endTz:   moment(data.raw.shiftApplicabilityIntervalTo).tz('America/New_York').format('lll')
         }
-        
         this._modalData = data;
         this.$.modal.open();
       }
 
       _closedDialog(e) {
-        if (!e.detail.confirmed) {
-          return;
-        }
+        if (!e.detail.confirmed)  return;
+        if (this._modalData.raw.staffContactid === this.$.staffSelect.selectedItem.value)  return;
 
-        if (this._modalData.raw.staffContactid === this.$.staffSelect.selectedItem.value) {
-          return;
-        }
-
-        var sub = {
+        this.$.PostSub.body = {
           contactId:     this._modalData.raw.staffContactid,
           replacementId: this.$.staffSelect.selectedItem.value,
           start:         this._modalData.raw.shiftApplicabilityIntervalFrom,
           end:           this._modalData.raw.shiftApplicabilityIntervalTo
         };
-
-        this.$.PostSub.body = sub;
         this.$.PostSub.generateRequest();
       }
 
-      handleSuccessSub(e) {
+      _handleSuccessSub(e) {
         this.$.getAssignment.generateRequest();
       }
 
-      handleFailedSub(e) {
+      _handleFailedSub(e) {
         console.error("Failed to create Sub");
       }
 
-      handleGroupData(data) {
+
+      _getStaffById(id) {
+        this.staff.forEach(function(staff) {
+          if (staff.id == id) return staff;
+        })
+      }
+
+
+      _handleGroupData(data) {
         var tempStaff = [];
+        var colorIndex = 0;
         data.detail.response.data.forEach(function(staff) {
           tempStaff.push({
-            id:    staff.id,
-            name:  staff.firstName + " " + staff.lastName
+            id:      staff.id,
+            name:    staff.firstName + " " + staff.lastName,
+            label:   staff.firstName + " " + staff.lastName,
+            color:   getColor(colorIndex),
+            hidden:  false
           });
+          colorIndex ++;
         });
         this.staff = tempStaff;
       }
 
-      handleAssignmentData(data) {
+      _handleAssignmentData(data) {
         var tempEvents = [];
-        var tempcategories = [];
-
         data.detail.response.data.forEach(function(staff) {
           staff.shiftAssignments.forEach(function(shift) {
             tempEvents.push({
               allDay: true,
               title:    staff.firstName + " " + staff.lastName,
               start:    shift.shiftApplicabilityIntervalFrom,
-              category: "s" + shift.staffShiftAssignmentId,
+              category: staff.firstName + " " + staff.lastName,
               raw:      shift
             });
-            
-            var index = tempcategories.findIndex(x => x.id == shift.staffShiftAssignmentId)
-            if (index === -1){
-              tempcategories.push({ 
-                id:     shift.staffShiftAssignmentId,
-                label:  "s" + shift.staffShiftAssignmentId, 
-                color:  getRandomColor(),
-                hidden: false 
-              });
-            }
-
           })
         })
-        this.categories = tempcategories;
-        this.events = tempEvents;
+        this._events = tempEvents;
       }
 
-      handleSubstitutionData(data) {
+      _computeEvents(_events, staff) {
+        if (staff == null || _events == null) return [];
+        return _events;
+      }
+
+      _handleSubstitutionData(data) {
         this.substitutions = data.detail.response.data;
       }
     }
