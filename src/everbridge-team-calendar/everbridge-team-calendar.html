@@ -7,6 +7,7 @@
 <link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
 <link rel="import" href="../../bower_components/paper-item/paper-item.html">
 <link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
+<link rel="import" href="../../moment-import.html">
 
 <dom-module id="everbridge-team-calendar">
   <template>
@@ -19,11 +20,9 @@
       } 
       paper-dropdown-menu {
         width: 300px;
-        margin-right: 20px;
      }
      paper-listbox {
         width: 300px;
-        margin-right: 20px;
      }
     </style>
 
@@ -70,7 +69,8 @@
     -->
 
     <paper-dialog id='modal' modal>
-      <h2>Header</h2>
+      <h2>[[_modalData.title]]</h2>
+      <h4>[[_modalData.cleaned.startTz]]  --->  [[_modalData.cleaned.endTz]]</h4>
       <paper-dropdown-menu label="Replacement Staff">
         <paper-listbox id='staffSelect' slot="dropdown-content" attr-for-selected="value">
           <template is="dom-repeat" items="[[staff]]">
@@ -192,7 +192,17 @@
 
       _handleClick(e) {
         console.info(e.detail);
-        this._modalData = e.detail.calEvent;
+        var data = e.detail.calEvent;
+       
+        var startutc = moment(data.raw.shiftApplicabilityIntervalFrom);
+        var endutc = moment(data.raw.shiftApplicabilityIntervalTo);
+
+        data.cleaned ={
+          startTz: startutc.tz('America/New_York').format('lll'),
+          endTz:   endutc.tz('America/New_York').format('lll')
+        }
+        
+        this._modalData = data;
         this.$.modal.open();
       }
 
