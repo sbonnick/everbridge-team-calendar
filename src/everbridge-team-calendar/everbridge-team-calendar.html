@@ -34,7 +34,7 @@
     </iron-ajax>
 
     <iron-ajax id="PostSub"
-      url="{{_formatSubstitutionURL(uri, calendarid)}}"
+      url="{{_formatSubstitutionURL(env.uri, env.calendarId)}}"
       method="POST"
       content-type="application/json"
       handle-as="json"
@@ -44,7 +44,7 @@
 
     <iron-ajax id="getGroups" 
       auto 
-      url="{{_formatGroupURL(uri, contactgroup)}}" 
+      url="{{_formatGroupURL(env.uri, env.contactGroup)}}" 
       handle-as="json" 
       on-response="_handleGroupData" 
       debounce-duration="300">
@@ -52,7 +52,7 @@
     
     <iron-ajax id="getAssignment" 
       auto 
-      url="{{_formatAssignmentURL(uri, calendarid, date, days)}}" 
+      url="{{_formatAssignmentURL(env.uri, env.calendarId, date, days)}}" 
       handle-as="json" 
       on-response="_handleAssignmentData" 
       debounce-duration="300">
@@ -61,7 +61,7 @@
     <!--
     <iron-ajax id="getSubstitution" 
       auto 
-      url="{{_formatSubstitutionURL(uri, calendarid, date, days)}}" 
+      url="{{_formatSubstitutionURL(env.uri, env.calendarId, date, days)}}" 
       handle-as="json" 
       on-response="_handleSubstitutionData" 
       debounce-duration="300"> 
@@ -127,18 +127,6 @@
           env: {
             type: Object
           },
-          uri: {
-            type: String,
-            computed: '_setUri(env)'
-          },
-          contactgroup: {
-            type: String,
-            computed: '_setContactGroup(env)'
-          },
-          calendarid: {
-            type: String,
-            computed: '_setCalendarId(env)'
-          },
           date: {
             type: String,
             value: "2017-01-01"
@@ -174,12 +162,14 @@
         this.$.modal.addEventListener('iron-overlay-closed', e => {this._closedDialog(e)});
       }
 
+      // Public Functions
 
-      // Build Environment Variables
+      getStaffById(id) {
+        this.staff.forEach(function(staff) {
+          if (staff.id == id) return staff;
+        })
+      }
 
-      _setUri(env) { return env.uri }
-      _setContactGroup(env) { return env.contactGroup }
-      _setCalendarId(env) { return env.calendarId }
 
 
       // URL Formatting Rules
@@ -234,12 +224,8 @@
       }
 
 
-      _getStaffById(id) {
-        this.staff.forEach(function(staff) {
-          if (staff.id == id) return staff;
-        })
-      }
-
+      
+      // Handle data return from Ajax calls 
 
       _handleGroupData(data) {
         var tempStaff = [];
@@ -273,14 +259,15 @@
         this._events = tempEvents;
       }
 
+      _handleSubstitutionData(data) {
+        this.substitutions = data.detail.response.data;
+      }
+
       _computeEvents(_events, staff) {
         if (staff == null || _events == null) return [];
         return _events;
       }
-
-      _handleSubstitutionData(data) {
-        this.substitutions = data.detail.response.data;
-      }
+      
     }
 
     window.customElements.define(everbridgeTeamCalendar.is, everbridgeTeamCalendar);
