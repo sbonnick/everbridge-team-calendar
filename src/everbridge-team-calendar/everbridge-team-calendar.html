@@ -94,8 +94,8 @@
         all-day-text="All Day"
         event-color="#378006"
         text-color="#ecf0f1"
-        categories={{staff}}
-        events={{events}}
+        categories=[[staff]]
+        events=[[events]]
         header=''>
       </scheduler-component>
     <div/>
@@ -264,7 +264,7 @@
       }
 
       _computeEvents(_events, staff) {
-        if (staff == null || _events == null) return [];
+        if (staff == null || !staff.length || _events == null) return [];
         return _events;
       }
       
