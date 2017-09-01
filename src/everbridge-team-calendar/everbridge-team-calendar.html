@@ -141,8 +141,7 @@
           },
           events: {
             type: Object,
-            value: [],
-            computed: '_computeEvents(_events, staff)'
+            value: []
           },
           staff: {
             type: Object,
@@ -154,6 +153,12 @@
           },
           _events: Object
         };
+      }
+
+      static get observers() {
+        return [
+            '_computeEvents(_events, staff)'
+        ]
       }
       
       ready() {
@@ -265,8 +270,8 @@
 
       _computeEvents(_events, staff) {
         console.warn(_events, staff);
-        if (staff == null || !staff.length || _events == null) return [];
-        return _events;
+        if (staff == null || !staff.length || _events == null || !_events.length) return;
+        this.events = _events.slice();
       }
       
     }
