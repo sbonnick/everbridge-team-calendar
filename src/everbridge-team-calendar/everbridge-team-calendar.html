@@ -26,10 +26,12 @@
       .card-container {
         max-width: 1200px;
         min-width: 400px;
+        padding-left: 12px;
       }
+
       .paper-card-large {
         max-width: 800px;
-        min-width: 800px;
+        width: 100%;
       }
       .paper-card-small {
         max-width: 800px;
@@ -101,7 +103,7 @@
 
     <div class="horizontal layout center-justified">
       <div class="flex-auto horizontal layout center-justified card-container wrap">
-        <paper-card class="flex paper-card-large" heading="On-Call Schedule">
+        <paper-card class="flex-none paper-card-large" heading="On-Call Schedule">
           <div class="card-content">
             <scheduler-component
               id='schedulerComponent'
