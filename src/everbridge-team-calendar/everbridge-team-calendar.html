@@ -3,27 +3,42 @@
 <link rel="import" href="../../bower_components/iron-ajax/iron-ajax.html">
 <link rel="import" href="../../bower_components/paper-button/paper-button.html">
 <link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/paper-card/paper-card.html">
 <link rel="import" href="../../bower_components/neon-animation/web-animations.html">
 <link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
 <link rel="import" href="../../bower_components/paper-item/paper-item.html">
 <link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
 <link rel="import" href="../../moment-import.html">
 
 <dom-module id="everbridge-team-calendar">
   <template>
-    <style>
+    <style is="custom-style" include="iron-flex iron-positioning iron-flex-alignment">
       :host {
         display: block;
       }
-      #scheduleContainer {
-        width: 70%;
-      }
       paper-dropdown-menu {
         width: 300px;
-     }
-     paper-listbox {
+      }
+      paper-listbox {
         width: 300px;
-     }
+      }
+      .card-container {
+        max-width: 1200px;
+        min-width: 400px;
+      }
+      .paper-card-large {
+        max-width: 800px;
+        min-width: 800px;
+      }
+      .paper-card-small {
+        max-width: 800px;
+        width: 100%;
+      }
+      paper-card {
+        margin-right: 12px;
+        margin-bottom: 8px;
+      }
     </style>
 
     <iron-ajax id="envars"
@@ -84,21 +99,35 @@
       </div>
     </paper-dialog>
 
-    <div id="scheduleContainer">
-      <scheduler-component
-        id='schedulerComponent'
-        default-view="month"
-        show-categories
-        weekends
-        height=800
-        all-day-text="All Day"
-        event-color="#378006"
-        text-color="#ecf0f1"
-        categories={{staff}}
-        events={{events}}
-        header=''>
-      </scheduler-component>
-    <div/>
+    <div class="horizontal layout center-justified">
+      <div class="flex-auto horizontal layout center-justified card-container wrap">
+        <paper-card class="flex paper-card-large" heading="On-Call Schedule">
+          <div class="card-content">
+            <scheduler-component
+              id='schedulerComponent'
+              default-view="month"
+              show-categories
+              fixed-week-count="false"
+              weekends
+              all-day-text="All Day"
+              event-color="#378006"
+              text-color="#ecf0f1"
+              categories={{staff}}
+              events={{events}}
+              header='{"center": "title", "left": "month,listMonth", "right": "today prev,next"}'>
+            </scheduler-component>
+          </div>
+        </paper-card>
+        <div class="flex-auto vertical layout center wrap">
+          <paper-card class="paper-card-small" heading="Contact Validation">
+          </paper-card>
+          <paper-card class="paper-card-small" heading="Export to Finance">
+          </paper-card>
+          <paper-card class="paper-card-small" heading="Test Callout">
+          </paper-card>
+        </div>
+      </div>
+    </div>
   </template>
 
   
@@ -151,7 +180,8 @@
             type: Object,
             value: []
           },
-          _events: Object
+          _events: Object,
+          _modalData: Object
         };
       }
 
@@ -269,7 +299,6 @@
       }
 
       _computeEvents(_events, staff) {
-        console.warn(_events, staff);
         if (staff == null || !staff.length || _events == null || !_events.length) return;
         this.events = _events.slice();
       }
