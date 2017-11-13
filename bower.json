@@ -22,7 +22,7 @@
     "prism-table": "Prhythm/prism-table#^2.0.0",
     "twix": "^1.2.1",
     "fullcalendar": "^3.4.0",
-    "paper-toast": "polymerelements/paper-card#^2.0.0"
+    "paper-toast": "polymerElements/paper-toast#^2.0.0"
   },
   "devDependencies": {
     "web-component-tester": "Polymer/web-component-tester#^6.0.0",
