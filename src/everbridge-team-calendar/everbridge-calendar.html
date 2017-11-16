@@ -31,7 +31,7 @@
           show-categories
           weekends
           all-day-text="All Day"
-          event-color="#378006"
+          event-color="#fcb8d2"
           text-color="#ecf0f1"
           categories="[[group]]"
           events="{{_events}}"
@@ -99,8 +99,8 @@
 
               tempEvents.push({
                 allDay:    true,
-                title:     contact.label,
-                category:  contact.label,
+                title:     (contact != null)? contact.label : "Not Staffed",
+                category:  (contact != null)? contact.label : null,
                 start:     day,
                 day:       day,
                 contactId: contactId,

@@ -36,20 +36,13 @@
       on-response="_receiveOverrides"
       debounce-duration="300"> 
     </iron-ajax>
-<!--
-    <iron-ajax id="getSubstitutions"
-      auto
-      url="{{_urlSubstitutions}}"
-      handle-as="json"
-      on-response="_receiveSubstitutions"
-      debounce-duration="300"> 
-    </iron-ajax>
-  -->
+
     <iron-ajax id="cud" 
       content-type="application/json" 
       handle-as="json"
       on-response="_successStaffUpdate"
-      on-error="_failedStaffUpdate">
+      on-error="_failedStaffUpdate"
+      timeout="5000">
     </iron-ajax>
 
   </template>
@@ -92,13 +85,11 @@
           _staffSchedule: Object,
           _shiftSchedule: Object,
           _overrides:     Object,
-          //_substitutions: Object,
           _urlGroup:           String,
           _urlStaffSchedule:   String,
           _urlShiftSchedule:   String,
           _urlOverrides:       String,
-          _urlUpsertOverrides: String,
-          //_urlSubstitutions:   String
+          _urlUpsertOverrides: String
         }; 
       }
 
@@ -120,7 +111,8 @@
           this.$.cud.method = "PUT"
           this.$.cud.url = this._urlUpsertOverrides + d.override.id
           d.scheduled.forEach(function (staff, index) {
-            replacementIds.push( (staff.id == staffId)? contactId : d.override.contacts[index] )
+            var id = (staff.id == staffId)? contactId : d.override.contacts[index];
+            if (id !=null) replacementIds.push(id)
           })
 
         } else {
@@ -149,11 +141,9 @@
         this.dispatchEvent(new CustomEvent('update-staff-failed', { detail: { message: "Failed to update staff"}}));
       }
 
-
       _receiveStaffSchedule(response) { this._staffSchedule = response.detail.response.data }
       _receiveShiftSchedule(response) { this._shiftSchedule = response.detail.response.data }
       _receiveOverrides(response)     { this._overrides = response.detail.response.data }
-      //_receiveSubstitutions(response) { this._substitutions = response.detail.response.data }
 
       _receiveGroup(response) {
         var tempGroup = []
@@ -188,7 +178,6 @@
         this._urlShiftSchedule   = base + "/shifts/"
         this._urlOverrides       = base + "/overrides/" + dateRun
         this._urlUpsertOverrides = base + "/overrides/"
-        // this._urlSubstitutions   = base + "/substitutions/" + dateRun
       }
 
       _computeSchedule(dateRange, staffSchedule, shiftSchedule, overrides) {
