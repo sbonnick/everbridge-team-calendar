@@ -1,0 +1,258 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../bower_components/iron-ajax/iron-ajax.html">
+
+<link rel="import" href="../../moment-import.html">
+
+<dom-module id="everbridge-data">
+  <template>
+    <iron-ajax id="getGroups" 
+      auto 
+      url="{{_urlGroup}}"
+      handle-as="json" 
+      on-response="_receiveGroup" 
+      debounce-duration="300">
+    </iron-ajax>
+    
+    <iron-ajax id="getStaffSchedule"
+      auto
+      url="{{_urlStaffSchedule}}"
+      handle-as="json"
+      on-response="_receiveStaffSchedule"
+      debounce-duration="300"> 
+    </iron-ajax>
+
+    <iron-ajax id="getShiftSchedule"
+      auto
+      url="{{_urlShiftSchedule}}"
+      handle-as="json"
+      on-response="_receiveShiftSchedule"
+      debounce-duration="300"> 
+    </iron-ajax>
+
+    <iron-ajax id="getOverrides"
+      auto
+      url="{{_urlOverrides}}"
+      handle-as="json"
+      on-response="_receiveOverrides"
+      debounce-duration="300"> 
+    </iron-ajax>
+
+    <iron-ajax id="cud" 
+      content-type="application/json" 
+      handle-as="json"
+      on-response="_successStaffUpdate"
+      on-error="_failedStaffUpdate"
+      timeout="5000">
+    </iron-ajax>
+
+  </template>
+
+  <script>
+    const _COLORS = [
+      "#F44336", "#9C27B0", "#2196F3", "#009688", "#4CAF50", "#FF9800",
+      "#795548", "#9E9E9E", "#000000", "#E91E63", "#673AB7", "#00BCD4", 
+      "#8BC34A", "#FFC107", "#607D8B", "#3F51B5", "#FF5722", "#FFEB3B"
+    ]
+
+    function getColor(count) {
+      var remainder = count % _COLORS.length;
+      return _COLORS[remainder];
+    }
+
+    /**
+     * @customElement
+     * @polymer
+     */
+    class everbridgeData extends Polymer.Element {
+      static get is() { return 'everbridge-data'; }
+      static get properties() {
+        return {
+          date: String,
+          proxyUrl: String,
+          contactGroup: String,
+          calendarId: String,
+          schedule: {
+            type: Object,
+            notify: true,
+            readOnly: true
+          },
+          group: { 
+            type: Object,
+            notify: true,
+            readOnly: true
+          },
+          _dateRange:     Object,
+          _staffSchedule: Object,
+          _shiftSchedule: Object,
+          _overrides:     Object,
+          _urlGroup:           String,
+          _urlStaffSchedule:   String,
+          _urlShiftSchedule:   String,
+          _urlOverrides:       String,
+          _urlUpsertOverrides: String
+        }; 
+      }
+
+      static get observers() {
+        return [
+          '_buildGroupUrl(proxyUrl, contactGroup)',
+          '_computeSchedule(_dateRange, _staffSchedule, _shiftSchedule, _overrides, _substitutions)',
+          '_calculateDateRun(date, proxyUrl, calendarId)'
+        ]
+      }
+
+      updateStaffOverride(day, shiftId, staffId, contactId) {
+        var shift = this.schedule.find(shift => shift.id = shiftId)
+        var d = shift.schedule[day]
+        var replacementIds = []
+          // TODO: throw error if override has a different day or more of them
+
+        if (d.override != null) {
+          this.$.cud.method = "PUT"
+          this.$.cud.url = this._urlUpsertOverrides + d.override.id
+          d.scheduled.forEach(function (staff, index) {
+            var id = (staff.id == staffId)? contactId : d.override.contacts[index];
+            if (id !=null) replacementIds.push(id)
+          })
+
+        } else {
+          this.$.cud.method = "POST"
+          this.$.cud.url = this._urlUpsertOverrides
+          d.scheduled.forEach(function (staff, index) {
+            replacementIds.push( (staff.id == staffId)? contactId : staff.contact )
+          })
+        }
+      
+        this.$.cud.body = {
+          calendarId: this.calendarId, 
+          shiftScheduleId: shiftId, 
+          replacementIds: replacementIds, 
+          dates: [day] 
+        }
+
+        this.$.cud.generateRequest()
+      }
+
+      _successStaffUpdate(response) {
+        this.$.getOverrides.generateRequest()
+      }
+
+      _failedStaffUpdate(response) {
+        this.dispatchEvent(new CustomEvent('update-staff-failed', { detail: { message: "Failed to update staff"}}));
+      }
+
+      _receiveStaffSchedule(response) { this._staffSchedule = response.detail.response.data }
+      _receiveShiftSchedule(response) { this._shiftSchedule = response.detail.response.data }
+      _receiveOverrides(response)     { this._overrides = response.detail.response.data }
+
+      _receiveGroup(response) {
+        var tempGroup = []
+        response.detail.response.data.forEach(function(staff, i) {
+          tempGroup.push({
+            id:      staff.id,
+            name:    staff.firstName + " " + staff.lastName,
+            label:   staff.firstName + " " + staff.lastName,
+            color:   getColor(i),
+            hidden:  false
+          });
+        });
+        this._setGroup(tempGroup)
+        console.log(tempGroup)
+      }
+
+      _buildGroupUrl(proxyUrl, contactGroup) {
+        if (proxyUrl == null || contactGroup == null) return;
+        this._urlGroup = proxyUrl + "/contacts/" + contactGroup
+      }
+
+      _calculateDateRun(date, proxyUrl, calendarId) {
+        if (date == null || proxyUrl == null || calendarId == null) return;
+
+        var tempStart = moment(moment(date).subtract(1, 'month').startOf('month').format("YYYY-MM-DD"))
+        var tempEnd = moment(moment(date).add(1, 'month').endOf('month').format("YYYY-MM-DD"))
+        this._dateRange = tempStart.twix(tempEnd)
+ 
+        var dateRun = tempStart.format('YYYY-MM-DD') + "/" + this._dateRange.count("days")
+        var base    = proxyUrl + "/calendars/" + calendarId
+        this._urlStaffSchedule   = base + "/staff/"
+        this._urlShiftSchedule   = base + "/shifts/"
+        this._urlOverrides       = base + "/overrides/" + dateRun
+        this._urlUpsertOverrides = base + "/overrides/"
+      }
+
+      _computeSchedule(dateRange, staffSchedule, shiftSchedule, overrides) {
+        if (staffSchedule == null || shiftSchedule == null || overrides == null) return;
+
+        var tempSchedule = []
+ 
+        // only supports full week shifts
+        shiftSchedule.forEach(function (shift) {
+
+          var tempShift = {
+            id: shift.id,
+            name: shift.name,
+            applies: shift.datesApplicable,
+            days: shift.numDays,
+            start: shift.schedule[0].shift.start,
+            end: shift.schedule[0].shift.end,
+            staffing: [],
+            schedule: {}
+          }
+          
+          var dates = dateRange.iterate("days")
+          while (dates.hasNext()) {
+            tempShift.schedule[dates.next().format("YYYY-MM-DD")] = {
+              scheduled: []
+            }
+          }
+
+          // only supports periodic recurrence, n=1, seq=0, full week
+          staffSchedule.forEach(function (staff) {
+            if (staff.shiftScheduleId != shift.id) return;
+            tempShift.staffing.push({
+              id: staff.id,
+              name: staff.name,
+              applies: staff.recurrence.datesApplicable,
+              contactIds: staff.staffAssignments[0].contactIds
+            })
+
+            var from = moment(staff.recurrence.datesApplicable.from)
+            var to = dateRange.end()
+            if (staff.recurrence.datesApplicable.to != null) to = moment(staff.recurrence.datesApplicable.to)
+            var staffRange = from.twix(to)
+            var shiftIntersection = dateRange.intersection(staffRange)
+
+            var intersectionDates = shiftIntersection.iterate("days")
+            while (intersectionDates.hasNext()) {
+              var idate = intersectionDates.next()
+              var remainder = from.twix(idate).count("days") % staff.staffAssignments[0].contactIds.length
+              tempShift.schedule[idate.format("YYYY-MM-DD")].scheduled.push({
+                id: staff.id,
+                contact: staff.staffAssignments[0].contactIds[remainder]
+              })
+            }
+          })
+
+          overrides.forEach(function (override) {
+            if (override.shiftScheduleId != shift.id) return;
+            override.recurrence.datesApplicable.forEach(function (odate) {
+              if (!(odate in tempShift.schedule)) return
+              tempShift.schedule[odate]["override"] = {
+                id: override.id,
+                contacts: override.staffAssignment.contactIds
+              }
+            })
+          })
+
+          tempSchedule.push(tempShift)
+        })
+        console.log(tempSchedule)
+
+        this._setSchedule(tempSchedule)
+      }
+
+    }
+    window.customElements.define(everbridgeData.is, everbridgeData);
+  </script>
+
+</dom-module>

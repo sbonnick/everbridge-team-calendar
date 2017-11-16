@@ -1,5 +1,15 @@
 # \<everbridge-team-calendar\>
 
+This repo contains several components for interacting with everbridge via the everbridge proxy. In addition, there is an example app using them all together. 
+
+there is a docker container if you wish to be up and running using static hosting.
+
+## Setup in Everbridge
+
+1. single calendar
+2. support for as many shifts as required
+3. support for as many staffing tiers per shift
+4. only supports a single 7 day staff per staffing tier
 
 
 ## Install the Polymer-CLI

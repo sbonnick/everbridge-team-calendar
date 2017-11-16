@@ -1,0 +1,129 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../../moment-import.html">
+
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/neon-animation/web-animations.html">
+<link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+
+<dom-module id="everbridge-update-staff-modal">
+  <template>
+    <style is="custom-style" include="iron-flex iron-positioning iron-flex-alignment">
+      :host {
+        display: block;
+      }
+      paper-dropdown-menu {
+        width: 300px;
+        padding: 5px;
+      }
+      paper-listbox {
+        width: 300px;
+      }
+      paper-input {
+        width: 300px;
+        padding: 5px;
+      }
+      .card-container {
+        padding-left: 12px;
+      }
+    </style>
+
+    <paper-dialog id='modal' modal>
+      <H2>Update '[[_staff.name]]' for the '[[_shift.name]]' shift</H2>
+
+      <div class="horizontal justified layout wrap">
+        <paper-input always-float-label label="Shift day" disabled value="[[day]]"></paper-input>
+        <paper-input always-float-label label="Shift time start" disabled value="[[_shift.start]]"></paper-input>
+      </div>
+
+      <div class="horizontal justified layout wrap">
+        <paper-input always-float-label label="Source Staff" disabled value="[[_contact.label]]"></paper-input>
+        <paper-dropdown-menu label="Replacement Staff">
+          <paper-listbox id='staffSelect' slot="dropdown-content" attr-for-selected="value">
+            <template is="dom-repeat" items="[[group]]">
+              <paper-item value="[[item.id]]">[[item.label]]</paper-item>
+            </template>
+          </paper-listbox>
+        </paper-dropdown-menu>
+      </div>
+
+      <div class="buttons">
+        <paper-button dialog-dismiss>Cancel</paper-button>
+        <paper-button dialog-confirm autofocus>Update</paper-button>
+      </div>
+    </paper-dialog> 
+  </template>
+
+  <script>
+
+    /**
+     * @customElement
+     * @polymer
+     */
+    class everbridgeUpdateStaffModal extends Polymer.Element {
+      static get is() { return 'everbridge-update-staff-modal' }
+      static get properties() {
+        return {
+          schedule: Object,
+          group: Object, 
+          day: String,
+          shiftId: String,
+          staffId: String,  
+          contactId: String,
+          _shift: Object,
+          _staff: Object,
+          _contact: Object
+        }
+      }
+
+      static get observers() {
+        return [
+            '_buildContext(day, shiftId, staffId, contactId, schedule, group)',
+        ]
+      }
+      
+      ready() {
+        super.ready();
+        this.$.modal.addEventListener('iron-overlay-closed', e => {this._closedDialog(e)});
+      }
+
+      open() {
+        this.$.modal.open();
+      }
+
+      _buildContext(day, shiftId, staffId, contactId, schedule, group) {
+        if (day == null || shiftId == null || staffId == null || contactId == null || schedule == null || group == null) return;
+        this._shift = schedule.find(x => x.id === shiftId)
+        this._staff = this._shift.staffing.find(x => x.id === staffId)
+        this._contact = group.find(x => x.id === contactId)
+      }
+
+      _nameLookup(id) {
+        var contact = group.find(contact => contact.id === id)
+        return contact? contact.label : null
+      }
+
+      _closedDialog(e) {
+        if (!e.detail.confirmed)  return;
+ 
+        this.dispatchEvent(new CustomEvent('staff-changed', { 
+          detail: {
+            day:     this.day,
+            shiftId: this.shiftId,
+            staffId: this.staffId,
+            fromId:  this.contactId,
+            toId:    this.$.staffSelect.selectedItem.value
+          }
+        }));
+      }
+
+    }
+
+    window.customElements.define(everbridgeUpdateStaffModal.is, everbridgeUpdateStaffModal);    
+  </script>
+</dom-module>

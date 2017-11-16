@@ -1,151 +1,54 @@
 <link rel="import" href="../../bower_components/polymer/polymer-element.html">
-<link rel="import" href="../../bower_components/scheduler-component/scheduler-component.html">
-<link rel="import" href="../../bower_components/iron-ajax/iron-ajax.html">
-<link rel="import" href="../../bower_components/paper-button/paper-button.html">
-<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
-<link rel="import" href="../../bower_components/paper-card/paper-card.html">
-<link rel="import" href="../../bower_components/neon-animation/web-animations.html">
-<link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
-<link rel="import" href="../../bower_components/paper-item/paper-item.html">
-<link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
-<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../../bower_components/paper-toast/paper-toast.html">
 <link rel="import" href="../../moment-import.html">
+<link rel="import" href="envar-component.html">
+<link rel="import" href="everbridge-data.html">
+<link rel="import" href="everbridge-calendar.html">
+<link rel="import" href="everbridge-update-staff-modal.html">
 
 <dom-module id="everbridge-team-calendar">
   <template>
-    <style is="custom-style" include="iron-flex iron-positioning iron-flex-alignment">
-      :host {
-        display: block;
-      }
-      paper-dropdown-menu {
-        width: 300px;
-      }
-      paper-listbox {
-        width: 300px;
-      }
-      .card-container {
-        max-width: 1200px;
-        min-width: 400px;
-        padding-left: 12px;
-      }
-
-      .paper-card-large {
-        max-width: 800px;
-        width: 100%;
-      }
-      .paper-card-small {
-        max-width: 800px;
-        width: 100%;
-      }
-      paper-card {
-        margin-right: 12px;
-        margin-bottom: 8px;
+    <style is="custom-style">
+      #notices {
+        --paper-toast-background-color: red;
+        --paper-toast-color: white;
       }
     </style>
 
-    <iron-ajax id="envars"
-      auto 
-      url="env.json" 
-      handle-as="json" 
-      last-response="{{env}}">
-    </iron-ajax>
+    <envar-component env="{{env}}"></envar-component>
 
-    <iron-ajax id="PostSub"
-      url="{{_formatSubstitutionURL(env.uri, env.calendarId)}}"
-      method="POST"
-      content-type="application/json"
-      handle-as="json"
-      on-response="_handleSuccessSub"
-      on-error="_handleFailedSub">
-    </iron-ajax>
+    <everbridge-data id="data"
+      date="[[date]]" 
+      proxy-url="[[env.uri]]" 
+      contact-group="[[env.contactGroup]]" 
+      calendar-id="[[env.calendarId]]"
+      schedule="{{schedule}}"
+      group="{{group}}">
+    </everbridge-data>
 
-    <iron-ajax id="getGroups" 
-      auto 
-      url="{{_formatGroupURL(env.uri, env.contactGroup)}}" 
-      handle-as="json" 
-      on-response="_handleGroupData" 
-      debounce-duration="300">
-    </iron-ajax>
-    
-    <iron-ajax id="getAssignment" 
-      auto 
-      url="{{_formatAssignmentURL(env.uri, env.calendarId, date, days)}}" 
-      handle-as="json" 
-      on-response="_handleAssignmentData" 
-      debounce-duration="300">
-    </iron-ajax>
-    
-    <!--
-    <iron-ajax id="getSubstitution" 
-      auto 
-      url="{{_formatSubstitutionURL(env.uri, env.calendarId, date, days)}}" 
-      handle-as="json" 
-      on-response="_handleSubstitutionData" 
-      debounce-duration="300"> 
-    </iron-ajax>
-    -->
+    <everbridge-calendar id="calendar"
+      schedule="[[schedule]]"
+      group="[[group]]"
+      date="{{date}}">      
+    </everbridge-calendar>
+ 
+    <everbridge-update-staff-modal id="staffUpdateModal"
+      schedule="[[schedule]]"
+      group="[[group]]"
+      day="[[focusedCalendarEvent.day]]"
+      shift-id="[[focusedCalendarEvent.shiftId]]"
+      staff-id="[[focusedCalendarEvent.staffId]]"
+      contact-id="[[focusedCalendarEvent.contactId]]">
+    </everbridge-update-staff-modal>
 
-    <paper-dialog id='modal' modal>
-      <h2>[[_modalData.title]]</h2>
-      <h4>[[_modalData.cleaned.startTz]]  --->  [[_modalData.cleaned.endTz]]</h4>
-      <paper-dropdown-menu label="Replacement Staff">
-        <paper-listbox id='staffSelect' slot="dropdown-content" attr-for-selected="value">
-          <template is="dom-repeat" items="[[staff]]">
-            <paper-item value="[[item.id]]">[[item.name]]</paper-item>
-          </template>
-        </paper-listbox>
-      </paper-dropdown-menu>
-      <div class="buttons">
-        <paper-button dialog-dismiss>Cancel</paper-button>
-        <paper-button dialog-confirm autofocus>Accept</paper-button>
-      </div>
-    </paper-dialog>
+    <paper-toast id="notices" 
+      class="fit-bottom"
+      duration="10000">
+    </paper-toast>
 
-    <div class="horizontal layout center-justified">
-      <div class="flex-auto horizontal layout center-justified card-container wrap">
-        <paper-card class="flex-none paper-card-large" heading="On-Call Schedule">
-          <div class="card-content">
-            <scheduler-component
-              id='schedulerComponent'
-              default-view="month"
-              show-categories
-              fixed-week-count="false"
-              weekends
-              all-day-text="All Day"
-              event-color="#378006"
-              text-color="#ecf0f1"
-              categories={{staff}}
-              events={{events}}
-              header='{"center": "title", "left": "month,listMonth", "right": "today prev,next"}'>
-            </scheduler-component>
-          </div>
-        </paper-card>
-        <div class="flex-auto vertical layout center wrap">
-          <paper-card class="paper-card-small" heading="Contact Validation">
-          </paper-card>
-          <paper-card class="paper-card-small" heading="Export to Finance">
-          </paper-card>
-          <paper-card class="paper-card-small" heading="Test Callout">
-          </paper-card>
-        </div>
-      </div>
-    </div>
   </template>
 
-  
-
   <script>
-
-    const _COLORS = [
-    "#F44336", "#9C27B0", "#2196F3", "#009688", "#4CAF50", "#FF9800",
-    "#795548", "#9E9E9E", "#000000", "#E91E63", "#673AB7", "#00BCD4", 
-    "#8BC34A", "#FFC107", "#607D8B", "#3F51B5", "#FF5722",  "#FFEB3B"
-    ]
-
-    function getColor(count) {
-      var remainder = count % _COLORS.length;
-      return _COLORS[remainder];
-    }
 
     /**
      * @customElement
@@ -155,156 +58,38 @@
       static get is() { return 'everbridge-team-calendar'; }
       static get properties() {
         return {
-          env: {
-            type: Object
-          },
+          env: Object,
+          group: Object,
+          schedule: Object,
+          focusedCalendarEvent: Object,
           date: {
             type: String,
-            value: "2017-01-01"
-          },
-          days: {
-            type: String,
-            value: "365"
-          },
-          categories: {
-            type: Object,
-            value: []
-          },
-          events: {
-            type: Object,
-            value: []
-          },
-          staff: {
-            type: Object,
-            value: []
-          },
-          substitutions: {
-            type: Object,
-            value: []
-          },
-          _events: Object,
-          _modalData: Object
+            value: function() { return moment().format("YYYY-MM-DD") }
+          }
         };
       }
 
-      static get observers() {
-        return [
-            '_computeEvents(_events, staff)'
-        ]
-      }
-      
       ready() {
         super.ready();
-        this.$.schedulerComponent.addEventListener('event-click', e => {this._handleClick(e)});
-        this.$.modal.addEventListener('iron-overlay-closed', e => {this._closedDialog(e)});
+        this.$.calendar.addEventListener('event-click', e => {this._calendarEventClicked(e)}); 
+        this.$.staffUpdateModal.addEventListener('staff-changed', e => {this._staffChanged(e)});
+        this.$.data.addEventListener('update-staff-failed', e => {this._error(e)});
+        
       }
 
-      // Public Functions
-
-      getStaffById(id) {
-        this.staff.forEach(function(staff) {
-          if (staff.id == id) return staff;
-        })
+      _calendarEventClicked(e) {
+        this.focusedCalendarEvent = e.detail.calEvent
+        this.$.staffUpdateModal.open();
       }
 
-
-
-      // URL Formatting Rules
-
-      _formatAssignmentURL(uri, calendarid, date, days) {
-        return uri + "calendars/"+ calendarid + "/assignment/" + date + "/" + days
+      _staffChanged(e) {
+        this.$.data.updateStaffOverride(e.detail.day, e.detail.shiftId, e.detail.staffId, e.detail.toId);
       }
 
-      _formatSubstitutionURL(uri, calendarid, date=null, days=null) {
-        if (date == null || days == null) {
-          return uri + "calendars/"+ calendarid + "/substitutions/"
-        }
-        return uri + "calendars/"+ calendarid + "/substitutions/" + date + "/" + days
+      _error(e) {
+        this.$.notices.text = e.detail.message
+        this.$.notices.open();
       }
-
-      _formatGroupURL(uri, contactgroup) {
-        return uri + "contacts/" + contactgroup
-      }
-
-
-      // Handling actions against clicking a user
-
-      _handleClick(e) {
-        var data = e.detail.calEvent;
-        data.cleaned ={
-          startTz: moment(data.raw.shiftApplicabilityIntervalFrom).tz('America/New_York').format('lll'),
-          endTz:   moment(data.raw.shiftApplicabilityIntervalTo).tz('America/New_York').format('lll')
-        }
-        this._modalData = data;
-        this.$.modal.open();
-      }
-
-      _closedDialog(e) {
-        if (!e.detail.confirmed)  return;
-        if (this._modalData.raw.staffContactid === this.$.staffSelect.selectedItem.value)  return;
-
-        this.$.PostSub.body = {
-          contactId:     this._modalData.raw.staffContactid,
-          replacementId: this.$.staffSelect.selectedItem.value,
-          start:         this._modalData.raw.shiftApplicabilityIntervalFrom,
-          end:           this._modalData.raw.shiftApplicabilityIntervalTo
-        };
-        this.$.PostSub.generateRequest();
-      }
-
-      _handleSuccessSub(e) {
-        this.$.getAssignment.generateRequest();
-      }
-
-      _handleFailedSub(e) {
-        console.error("Failed to create Sub");
-      }
-
-
-      
-      // Handle data return from Ajax calls 
-
-      _handleGroupData(data) {
-        var tempStaff = [];
-        var colorIndex = 0;
-        data.detail.response.data.forEach(function(staff) {
-          tempStaff.push({
-            id:      staff.id,
-            name:    staff.firstName + " " + staff.lastName,
-            label:   staff.firstName + " " + staff.lastName,
-            color:   getColor(colorIndex),
-            hidden:  false
-          });
-          colorIndex ++;
-        });
-        this.staff = tempStaff;
-      }
-
-      _handleAssignmentData(data) {
-        var tempEvents = [];
-        data.detail.response.data.forEach(function(staff) {
-          staff.shiftAssignments.forEach(function(shift) {
-            tempEvents.push({
-              allDay: true,
-              title:    staff.firstName + " " + staff.lastName,
-              start:    shift.shiftApplicabilityIntervalFrom,
-              category: staff.firstName + " " + staff.lastName,
-              raw:      shift
-            });
-          })
-        })
-        this._events = tempEvents;
-      }
-
-      _handleSubstitutionData(data) {
-        this.substitutions = data.detail.response.data;
-      }
-
-      _computeEvents(_events, staff) {
-        if (staff == null || !staff.length || _events == null || !_events.length) return;
-        this.events = _events.slice();
-      }
-      
     }
 
     window.customElements.define(everbridgeTeamCalendar.is, everbridgeTeamCalendar);

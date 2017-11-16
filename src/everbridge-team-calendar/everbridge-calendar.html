@@ -1,0 +1,123 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../../moment-import.html">
+
+<link rel="import" href="../scheduler-component/scheduler-component.html">
+<link rel="import" href="../../bower_components/paper-card/paper-card.html">
+
+
+
+<dom-module id="everbridge-calendar">
+  <template>
+    <style is="custom-style">
+      :host {
+        display: block;
+      }
+      .paper-card-large {
+        max-width: 800px;
+        width: 100%;
+      }
+      paper-card {
+        margin-right: 12px;
+        margin-bottom: 8px;
+      }
+    </style>
+
+    <paper-card class="paper-card-large" heading="On-Call Schedule">
+      <div class="card-content">
+        <scheduler-component
+          id='schedulerComponent'
+          default-view="month"
+          show-categories
+          weekends
+          all-day-text="All Day"
+          event-color="#fcb8d2"
+          text-color="#ecf0f1"
+          categories="[[group]]"
+          events="{{_events}}"
+          header='{"center": "title", "left": "month,listMonth", "right": "today prev,next"}'
+          disableFixedWeekCount>
+        </scheduler-component>
+      </div>
+    </paper-card>   
+  </template>
+
+  <script>
+
+    /**
+     * @customElement
+     * @polymer
+     */
+    class everbridgeCalendar extends Polymer.Element {
+      static get is() { return 'everbridge-calendar'; }
+      static get properties() {
+        return {
+          schedule: Object,
+          group: Object,
+          date: {
+            type: String,
+            notify: true,
+            readOnly: true
+          },
+          _events: Object
+        };
+      }
+
+      static get observers() {
+        return [
+          '_populateEvents(group, schedule)'
+        ]
+      }
+      
+      ready() {
+        super.ready();
+        this.$.schedulerComponent.addEventListener('view-render', e => {this._dateChange(e)});
+        this.$.schedulerComponent.addEventListener('event-click', e => {this._eventClicked(e)});
+      }
+
+      _dateChange(e) {
+        this._setDate(moment(e.detail.view.intervalStart).format('YYYY-MM-DD'));
+      }
+
+      _eventClicked(e) {
+        this.dispatchEvent(new CustomEvent('event-click', { detail: e.detail }));
+      }
+
+      _populateEvents(group, schedule) {
+        if (group == null || !group.length || schedule == null || !schedule.length) return;
+
+        var tempEvents = [];
+        schedule.forEach(function (shift, shiftIndex) {
+          Object.keys(shift.schedule).forEach(function (day, dayIndex) {
+            shift.schedule[day].scheduled.forEach(function (staff, staffIndex) {
+              var contactId = staff.contact
+              if ('override' in shift.schedule[day]) {
+                contactId = shift.schedule[day].override.contacts[staffIndex]
+              }
+
+              var contact = group.find(x => x.id === contactId)
+
+              tempEvents.push({
+                allDay:    true,
+                title:     (contact != null)? contact.label : "Not Staffed",
+                category:  (contact != null)? contact.label : null,
+                start:     day,
+                day:       day,
+                contactId: contactId,
+                shiftId:   shift.id,
+                staffId:   staff.id,
+                shiftIndex: shiftIndex,
+                staffIndex: staffIndex
+              })
+            })
+          })
+        })
+
+        this._events = tempEvents
+      }
+      
+    }
+
+    window.customElements.define(everbridgeCalendar.is, everbridgeCalendar);
+  </script>
+</dom-module>
